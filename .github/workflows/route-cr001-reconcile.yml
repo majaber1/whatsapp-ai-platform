@@ -1,0 +1,288 @@
+name: Reconcile CR-001 webhook diff
+
+on:
+  push:
+    branches:
+      - phase1/foundation-hardening
+    paths:
+      - '.github/workflows/route-cr001-reconcile.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: phase1/foundation-hardening
+          fetch-depth: 0
+
+      - name: Restore upstream route and apply minimal CR-001 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git show origin/main:src/app/api/whatsapp/webhook/route.ts > /tmp/route.ts
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('/tmp/route.ts')
+          text = p.read_text()
+
+          def repl(old: str, new: str, count: int = 1):
+              global text
+              found = text.count(old)
+              if found != count:
+                  raise SystemExit(f'expected {count} matches, found {found}: {old[:120]!r}')
+              text = text.replace(old, new)
+
+          repl(
+          '''      const value = change.value
+
+      // Handle status updates
+      if (value.statuses) {
+        for (const status of value.statuses) {
+          await handleStatusUpdate(status)
+        }
+      }
+
+      // Handle incoming messages
+      if (!value.messages || !value.contacts) continue
+
+      const phoneNumberId = value.metadata.phone_number_id
+''',
+          '''      const value = change.value
+      const phoneNumberId = value.metadata?.phone_number_id
+
+      // CR-001: resolve the provider connection before status or inbound
+      // message processing. A WAMID is never routed without its owning
+      // WhatsApp phone-number namespace.
+      if (!phoneNumberId) {
+        console.error('[webhook] messaging event missing metadata.phone_number_id')
+        continue
+      }
+''')
+
+          repl(
+          '''      const config = configRows[0]
+
+      const decryptedAccessToken = decrypt(config.access_token)
+''',
+          '''      const config = configRows[0]
+
+      // Status-only webhooks still resolve the exact connection first.
+      if (value.statuses) {
+        for (const status of value.statuses) {
+          await handleStatusUpdate(status, config.id)
+        }
+      }
+
+      // Handle incoming messages after status processing.
+      if (!value.messages || !value.contacts) continue
+
+      const decryptedAccessToken = decrypt(config.access_token)
+''')
+
+          repl(
+          '''        await processMessage(
+          message,
+          contact,
+          // Tenancy — drives every contact / conversation lookup
+''',
+          '''        await processMessage(
+          message,
+          contact,
+          // Exact WhatsApp connection that owns provider message ids.
+          config.id,
+          // Tenancy — drives every contact / conversation lookup
+''')
+
+          repl(
+          '''async function handleStatusUpdate(status: {
+  id: string
+  status: string
+  timestamp: string
+  recipient_id: string
+}) {''',
+          '''async function handleStatusUpdate(
+  status: {
+    id: string
+    status: string
+    timestamp: string
+    recipient_id: string
+  },
+  whatsappConfigId: string
+) {''')
+
+          repl(
+          '''    .update({ status: status.status })
+    .eq('message_id', status.id)
+''',
+          '''    .update({ status: status.status })
+    .eq('message_id', status.id)
+    .eq('whatsapp_config_id', whatsappConfigId)
+''')
+
+          repl(
+          '''    .select('id, status')
+    .eq('whatsapp_message_id', status.id)
+    .maybeSingle()
+''',
+          '''    .select('id, status')
+    .eq('whatsapp_message_id', status.id)
+    .eq('whatsapp_config_id', whatsappConfigId)
+    .maybeSingle()
+''')
+
+          repl(
+          '''    .select('conversation_id, conversations(account_id)')
+    .eq('message_id', status.id)
+    .limit(1)
+''',
+          '''    .select('conversation_id, conversations(account_id)')
+    .eq('message_id', status.id)
+    .eq('whatsapp_config_id', whatsappConfigId)
+    .limit(1)
+''')
+
+          repl(
+          '''async function flagBroadcastReplyIfAny(accountId: string, contactId: string) {''',
+          '''async function flagBroadcastReplyIfAny(
+  accountId: string,
+  contactId: string,
+  whatsappConfigId: string
+) {''')
+
+          repl(
+          '''      .select('id, status, broadcast_id, broadcasts!inner(account_id)')
+      .eq('contact_id', contactId)
+      .eq('broadcasts.account_id', accountId)
+''',
+          '''      .select('id, status, broadcast_id, broadcasts!inner(account_id)')
+      .eq('contact_id', contactId)
+      .eq('whatsapp_config_id', whatsappConfigId)
+      .eq('broadcasts.account_id', accountId)
+''')
+
+          repl(
+          '''async function lookupInternalIdByMetaId(
+  metaId: string,
+  conversationId: string
+): Promise<string | null> {''',
+          '''async function lookupInternalIdByMetaId(
+  metaId: string,
+  conversationId: string,
+  whatsappConfigId: string
+): Promise<string | null> {''')
+
+          repl(
+          '''    .eq('message_id', metaId)
+    .eq('conversation_id', conversationId)
+    .maybeSingle()
+''',
+          '''    .eq('message_id', metaId)
+    .eq('conversation_id', conversationId)
+    .eq('whatsapp_config_id', whatsappConfigId)
+    .maybeSingle()
+''')
+
+          repl(
+          '''async function handleReaction(
+  message: WhatsAppMessage,
+  conversationId: string,
+  contactId: string
+) {''',
+          '''async function handleReaction(
+  message: WhatsAppMessage,
+  conversationId: string,
+  contactId: string,
+  whatsappConfigId: string
+) {''')
+
+          repl(
+          '''  const targetInternalId = await lookupInternalIdByMetaId(
+    reaction.message_id,
+    conversationId
+  )
+''',
+          '''  const targetInternalId = await lookupInternalIdByMetaId(
+    reaction.message_id,
+    conversationId,
+    whatsappConfigId
+  )
+''')
+
+          repl(
+          '''async function processMessage(
+  message: WhatsAppMessage,
+  contact: { profile: { name: string }; wa_id: string },
+  // Tenancy.''',
+          '''async function processMessage(
+  message: WhatsAppMessage,
+  contact: { profile: { name: string }; wa_id: string },
+  // Exact provider connection resolved from metadata.phone_number_id.
+  whatsappConfigId: string,
+  // Tenancy.''')
+
+          repl(
+          '''  if (message.type === 'reaction') {
+    await handleReaction(message, conversation.id, contactRecord.id)
+    return
+  }
+''',
+          '''  if (message.type === 'reaction') {
+    await handleReaction(
+      message,
+      conversation.id,
+      contactRecord.id,
+      whatsappConfigId
+    )
+    return
+  }
+''')
+
+          repl(
+          '''    replyToInternalId = await lookupInternalIdByMetaId(
+      message.context.id,
+      conversation.id
+    )
+''',
+          '''    replyToInternalId = await lookupInternalIdByMetaId(
+      message.context.id,
+      conversation.id,
+      whatsappConfigId
+    )
+''')
+
+          repl(
+          '''        media_type: mediaType,
+        message_id: message.id,
+        status: 'delivered',
+''',
+          '''        media_type: mediaType,
+        message_id: message.id,
+        whatsapp_config_id: whatsappConfigId,
+        status: 'delivered',
+''')
+
+          repl(
+          '''  await flagBroadcastReplyIfAny(accountId, contactRecord.id)
+''',
+          '''  await flagBroadcastReplyIfAny(
+    accountId,
+    contactRecord.id,
+    whatsappConfigId
+  )
+''')
+
+          Path('src/app/api/whatsapp/webhook/route.ts').write_text(text)
+          PY
+
+          rm .github/workflows/route-cr001-reconcile.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/api/whatsapp/webhook/route.ts .github/workflows/route-cr001-reconcile.yml
+          git commit -m 'fix(webhook): minimize CR-001 provider scope diff'
+          git push origin HEAD:phase1/foundation-hardening
