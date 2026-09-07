@@ -108,6 +108,17 @@ BEGIN
 END
 $$;
 
--- IMPORTANT: keep EXACTLY ONE top-level SQL statement in this file.
--- `supabase db query --file` sends it as a prepared statement and rejects
--- multiple top-level commands. Add future assertions inside the DO block.
+-- Two things this file has already been burned by, both verified in CI
+-- rather than assumed:
+--
+-- 1. It must contain EXACTLY ONE statement. `supabase db query --file`
+--    sends the whole file as a prepared statement, and a second
+--    top-level statement fails with the distinctly unhelpful "cannot
+--    insert multiple commands into a prepared statement" (commit
+--    f91a6c8). Add assertions INSIDE the DO block above; do not append
+--    a second one.
+--
+-- 2. A RAISE in here really does fail the job. A deliberately false
+--    assertion (commit 42c7db0, run 31579334056) surfaced as
+--    `failed to execute query: error: ...` and exited 1. This is not a
+--    decorative green tick.
