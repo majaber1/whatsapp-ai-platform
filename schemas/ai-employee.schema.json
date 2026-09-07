@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://waip.local/schemas/ai-employee.schema.json",
+  "title": "WhatsApp AI Platform AI Employee Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion","id","tenantId","version","name","role","status","goals","languages","skills","knowledge","tools","permissions","runtimeLimits","escalation","evaluation"],
+  "properties": {
+    "schemaVersion": {"const":"1.0"},
+    "id": {"type":"string","pattern":"^EMP-[A-Z0-9_-]+$"},
+    "tenantId": {"type":"string","minLength":1},
+    "version": {"type":"integer","minimum":1},
+    "name": {"type":"string","minLength":1,"maxLength":120},
+    "role": {"type":"string","minLength":1,"maxLength":160},
+    "status": {"enum":["DRAFT","IN_REVIEW","APPROVED","ACTIVE","SUSPENDED","RETIRED"]},
+    "description": {"type":"string"},
+    "goals": {"type":"array","minItems":1,"items":{"type":"string"}},
+    "languages": {"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["code"],"properties":{"code":{"type":"string"},"locale":{"type":"string"},"dialect":{"type":"string"}}}},
+    "persona": {"type":"object","additionalProperties":true},
+    "skills": {"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","version"],"properties":{"id":{"type":"string"},"version":{"type":"string"},"enabled":{"type":"boolean","default":true}}}},
+    "knowledge": {"type":"array","items":{"type":"object","additionalProperties":false,"required":["sourceId","scope"],"properties":{"sourceId":{"type":"string"},"scope":{"enum":["TENANT","EMPLOYEE","CASE"]},"required":{"type":"boolean"}}}},
+    "tools": {"type":"array","items":{"type":"object","additionalProperties":false,"required":["toolId","operations"],"properties":{"toolId":{"type":"string"},"operations":{"type":"array","minItems":1,"items":{"type":"string"}},"requiresApproval":{"type":"boolean"}}}},
+    "permissions": {"type":"object","additionalProperties":false,"required":["allow","deny"],"properties":{"allow":{"type":"array","items":{"type":"string"}},"deny":{"type":"array","items":{"type":"string"}},"approvalRequired":{"type":"array","items":{"type":"string"}}}},
+    "runtimeLimits": {"type":"object","additionalProperties":false,"required":["maxLlmCalls","maxToolCalls","maxRetries","maxExecutionSeconds"],"properties":{"maxLlmCalls":{"type":"integer","minimum":0,"maximum":3},"maxToolCalls":{"type":"integer","minimum":0},"maxTokens":{"type":"integer","minimum":1},"maxRetries":{"type":"integer","minimum":0,"maximum":3},"maxExecutionSeconds":{"type":"integer","minimum":1},"maxCostUsd":{"type":"number","minimum":0}}},
+    "workingPolicy": {"type":"object","additionalProperties":true},
+    "memoryPolicy": {"type":"object","additionalProperties":true},
+    "escalation": {"type":"object","additionalProperties":false,"required":["conditions"],"properties":{"conditions":{"type":"array","items":{"type":"string"}},"defaultQueue":{"type":"string"}}},
+    "evaluation": {"type":"object","additionalProperties":false,"required":["policyId"],"properties":{"policyId":{"type":"string"},"minGroundedness":{"type":"number","minimum":0,"maximum":1},"minConfidence":{"type":"number","minimum":0,"maximum":1}}},
+    "audit": {"type":"object","additionalProperties":true}
+  }
+}
