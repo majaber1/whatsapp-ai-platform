@@ -480,6 +480,8 @@ export async function sendMessageToConversation(
       interactive_payload:
         messageType === 'interactive' ? interactivePayload : null,
       message_id: waMessageId,
+      // CR-001: persist the exact Meta connection that created this WAMID.
+      whatsapp_config_id: config.id,
       status: 'sent',
       reply_to_message_id: replyToMessageId || null,
     })
@@ -523,14 +525,14 @@ export async function sendMessageToConversation(
       .eq('contact_id', contact.id)
       .eq('status', 'active');
     if (pauseErr) {
-      console.error('[flows] pause-on-agent-send failed:', pauseErr.message);
+      console.warn('[send-message] could not pause active flow run:', pauseErr);
     }
-  } catch (err) {
-    console.error(
-      '[flows] pause-on-agent-send threw:',
-      err instanceof Error ? err.message : err
-    );
+  } catch (pauseErr) {
+    console.warn('[send-message] flow pause failed:', pauseErr);
   }
 
-  return { messageId: messageRecord.id, whatsappMessageId: waMessageId };
+  return {
+    messageId: messageRecord.id,
+    whatsappMessageId: waMessageId,
+  };
 }
