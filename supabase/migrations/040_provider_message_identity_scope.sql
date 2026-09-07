@@ -24,14 +24,16 @@ COMMENT ON COLUMN broadcast_recipients.whatsapp_config_id IS
 
 -- ------------------------------------------------------------
 -- Historical backfill while the inherited WACRM model still guarantees
--- exactly one WhatsApp configuration per account.
+-- exactly one WhatsApp configuration per account. Messages inherit tenant
+-- ownership from conversations; they do not carry account_id directly.
 -- ------------------------------------------------------------
 UPDATE messages AS m
 SET whatsapp_config_id = wc.id
-FROM whatsapp_config AS wc
-WHERE m.whatsapp_config_id IS NULL
-  AND m.message_id IS NOT NULL
-  AND m.account_id = wc.account_id;
+FROM conversations AS c
+JOIN whatsapp_config AS wc ON wc.account_id = c.account_id
+WHERE m.conversation_id = c.id
+  AND m.whatsapp_config_id IS NULL
+  AND m.message_id IS NOT NULL;
 
 UPDATE broadcast_recipients AS br
 SET whatsapp_config_id = wc.id
@@ -218,16 +220,14 @@ $$;
 
 DROP TRIGGER IF EXISTS trg_stamp_message_whatsapp_config ON messages;
 CREATE TRIGGER trg_stamp_message_whatsapp_config
-BEFORE INSERT OR UPDATE OF message_id, whatsapp_config_id
-ON messages
+BEFORE INSERT OR UPDATE ON messages
 FOR EACH ROW
 EXECUTE FUNCTION public.stamp_message_whatsapp_config();
 
 DROP TRIGGER IF EXISTS trg_stamp_broadcast_recipient_whatsapp_config
   ON broadcast_recipients;
 CREATE TRIGGER trg_stamp_broadcast_recipient_whatsapp_config
-BEFORE INSERT OR UPDATE OF whatsapp_message_id, whatsapp_config_id
-ON broadcast_recipients
+BEFORE INSERT OR UPDATE ON broadcast_recipients
 FOR EACH ROW
 EXECUTE FUNCTION public.stamp_broadcast_recipient_whatsapp_config();
 
