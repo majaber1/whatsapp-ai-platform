@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0",
+  "lockedAt": "2026-09-07",
+  "policy": "No automatic upstream upgrades. Review license/security/architecture compatibility and use ADR/CR for material changes.",
+  "upstreams": [
+    {
+      "id": "wacrm",
+      "repository": "https://github.com/ArnasDon/wacrm",
+      "commit": "98b5bd26e8feacacfd4b74ff58411acb8154d212",
+      "license": "MIT",
+      "mode": "foundation-import",
+      "status": "IMPORTED_BASELINE_PINNED",
+      "destinationRepository": "https://github.com/majaber1/whatsapp-ai-platform"
+    },
+    {
+      "id": "crewclaw",
+      "repository": "https://github.com/staruhub/CrewClaw",
+      "commit": "9e456e51064580bab3206d0e837018cfafdb7962",
+      "license": "Apache-2.0",
+      "mode": "selective-adaptation",
+      "status": "SELECTED"
+    },
+    {
+      "id": "openhire",
+      "repository": "https://github.com/pzy2000/OpenHire",
+      "commit": "17842144d0efc2f0661c00bb28b38d62ba331199",
+      "license": "MIT",
+      "mode": "selective-adaptation",
+      "status": "SELECTED"
+    }
+  ]
+}
