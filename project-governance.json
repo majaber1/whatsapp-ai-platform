@@ -24,11 +24,23 @@
     {"id":"P8","name":"Production GA","status":"PLANNED"}
   ],
   "requirements": {"total":21,"approved":0,"implemented":0,"liveE2E":0,"productionReady":0,"blocked":0},
-  "architecture": {"acceptedADRs":11,"proposedADRs":0,"supersededADRs":0,"openCRs":0,"violations":0},
+  "architecture": {"acceptedADRs":11,"proposedADRs":0,"supersededADRs":0,"openCRs":2,"violations":0},
   "testing": {
-    "unit":"NOT_RUN_ON_IMPORTED_BASELINE",
-    "integration":"NOT_RUN_ON_IMPORTED_BASELINE",
+    "ciBaseline": {
+      "runId": 34088726801,
+      "jobId": 101637732639,
+      "result": "PASS",
+      "install": "PASS",
+      "lint": "PASS",
+      "typecheck": "PASS",
+      "unitTests": "PASS",
+      "build": "PASS",
+      "scope": "IMPORTED_WACRM_PLUS_GOVERNANCE_BRANCH"
+    },
+    "integration":"NOT_RUN_ON_OUR_ENVIRONMENT",
+    "databaseMigrations":"NOT_RUN_ON_OUR_ENVIRONMENT",
     "browserPrototype":"STATIC_VERIFIED_BROWSER_REVERIFY_REQUIRED",
+    "browserApplication":"NOT_STARTED",
     "liveWhatsApp":"NOT_STARTED",
     "aiEvaluation":"NOT_STARTED",
     "security":"PHASE_0_SOURCE_REVIEW_PARTIAL",
@@ -48,7 +60,7 @@
   "risks": {"critical":2,"high":5,"medium":2,"low":0},
   "cost": {"fixedMonthly":"UNKNOWN","variable":"UNKNOWN","ai":"UNKNOWN","meta":"UNKNOWN"},
   "documents": {
-    "businessCase":"DRAFT","prd":"DRAFT","requirements":"DRAFT","hld":"DRAFT","lld":"DRAFT","data":"DRAFT","api":"DRAFT","integration":"DRAFT","ai":"DRAFT","security":"DRAFT","cost":"DRAFT","testing":"DRAFT","operations":"DRAFT","c4":"DRAFT","sequenceDiagrams":"DRAFT","compliance":"IN_REVIEW","universalStandard":"APPROVED","openSourceProvenance":"APPROVED","aiEmployeeContract":"IN_REVIEW"
+    "businessCase":"DRAFT","prd":"DRAFT","requirements":"DRAFT","hld":"DRAFT","lld":"DRAFT","data":"DRAFT","api":"DRAFT","integration":"DRAFT","ai":"DRAFT","security":"DRAFT","cost":"DRAFT","testing":"DRAFT","operations":"DRAFT","c4":"DRAFT","sequenceDiagrams":"DRAFT","compliance":"IN_REVIEW","universalStandard":"APPROVED","openSourceProvenance":"APPROVED","aiEmployeeContract":"IN_REVIEW","sourceAudit":"IN_REVIEW"
   },
   "updatedAt":"2026-09-07",
   "openSource": {
@@ -61,6 +73,8 @@
   "git": {
     "repository":"majaber1/whatsapp-ai-platform",
     "defaultBranch":"main",
+    "governanceBranch":"governance/phase0-baseline",
+    "draftPullRequest":1,
     "baselineCommit":"98b5bd26e8feacacfd4b74ff58411acb8154d212",
     "baselineTree":"dd56c28443b57949685fd852ff94e973a17c692e",
     "visibility":"PUBLIC_AT_BASELINE",
