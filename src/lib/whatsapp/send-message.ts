@@ -480,6 +480,8 @@ export async function sendMessageToConversation(
       interactive_payload:
         messageType === 'interactive' ? interactivePayload : null,
       message_id: waMessageId,
+      // CR-001: persist the exact Meta connection that created this WAMID.
+      whatsapp_config_id: config.id,
       status: 'sent',
       reply_to_message_id: replyToMessageId || null,
     })

@@ -42,6 +42,68 @@ BEGIN
     RAISE EXCEPTION 'public.accounts is missing — migration 017 did not apply';
   END IF;
 
+  -- CR-001 / migration 040: provider identity must be scoped to the
+  -- owning WhatsApp connection on both normal messages and broadcasts.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'messages'
+      AND column_name = 'whatsapp_config_id'
+  ) THEN
+    RAISE EXCEPTION
+      'messages.whatsapp_config_id is missing — migration 040 did not apply';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'broadcast_recipients'
+      AND column_name = 'whatsapp_config_id'
+  ) THEN
+    RAISE EXCEPTION
+      'broadcast_recipients.whatsapp_config_id is missing — migration 040 did not apply';
+  END IF;
+
+  IF to_regclass('public.idx_messages_config_message_id_unique') IS NULL THEN
+    RAISE EXCEPTION
+      'idx_messages_config_message_id_unique is missing — CR-001 provider identity is not enforced';
+  END IF;
+
+  IF to_regclass('public.idx_broadcast_recipients_config_wamid_unique') IS NULL THEN
+    RAISE EXCEPTION
+      'idx_broadcast_recipients_config_wamid_unique is missing — broadcast provider identity is not enforced';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger t
+    JOIN pg_class c ON c.oid = t.tgrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'messages'
+      AND t.tgname = 'trg_stamp_message_whatsapp_config'
+      AND NOT t.tgisinternal
+  ) THEN
+    RAISE EXCEPTION
+      'trg_stamp_message_whatsapp_config is missing — legacy writers are not protected';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger t
+    JOIN pg_class c ON c.oid = t.tgrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'broadcast_recipients'
+      AND t.tgname = 'trg_stamp_broadcast_recipient_whatsapp_config'
+      AND NOT t.tgisinternal
+  ) THEN
+    RAISE EXCEPTION
+      'trg_stamp_broadcast_recipient_whatsapp_config is missing — legacy broadcast writers are not protected';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

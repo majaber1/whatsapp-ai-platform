@@ -245,18 +245,14 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       }
 
       const value = change.value
+      const phoneNumberId = value.metadata?.phone_number_id
 
-      // Handle status updates
-      if (value.statuses) {
-        for (const status of value.statuses) {
-          await handleStatusUpdate(status)
-        }
+      // CR-001: every provider event must resolve its exact WhatsApp
+      // connection before a WAMID is read or updated.
+      if (!phoneNumberId) {
+        console.error('[webhook] messaging event missing metadata.phone_number_id')
+        continue
       }
-
-      // Handle incoming messages
-      if (!value.messages || !value.contacts) continue
-
-      const phoneNumberId = value.metadata.phone_number_id
 
       // Find user's config by phone_number_id. `.single()` returns
       // PGRST116 for both 0 rows AND ≥2 rows — distinguish them so
@@ -295,6 +291,16 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
 
       const config = configRows[0]
 
+      // Handle status updates only after resolving the provider connection.
+      if (value.statuses) {
+        for (const status of value.statuses) {
+          await handleStatusUpdate(status, config.id)
+        }
+      }
+
+      // Handle incoming messages
+      if (!value.messages || !value.contacts) continue
+
       const decryptedAccessToken = decrypt(config.access_token)
 
       for (let i = 0; i < value.messages.length; i++) {
@@ -304,6 +310,8 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
         await processMessage(
           message,
           contact,
+          // Provider-connection scope for message ids and reply targets.
+          config.id,
           // Tenancy — drives every contact / conversation lookup
           // and the engines' active-row dispatch.
           config.account_id,
@@ -369,16 +377,17 @@ async function handleStatusUpdate(status: {
   status: string
   timestamp: string
   recipient_id: string
-}) {
+}, whatsappConfigId: string) {
   // 1) Mirror onto messages (legacy behavior) — Meta's status values
   //    already match the CHECK constraint on messages.status. No
   //    `.select()`: message_id is NOT unique (migration 009 — Meta ids
   //    repeat across numbers), so this updates 0..N rows and must not
-  //    assume a single row.
+  //    assume a single row. CR-001 adds the owning connection boundary.
   const { error: msgErr } = await supabaseAdmin()
     .from('messages')
     .update({ status: status.status })
     .eq('message_id', status.id)
+    .eq('whatsapp_config_id', whatsappConfigId)
 
   if (msgErr) {
     console.error('Error updating message status:', msgErr)
@@ -398,6 +407,7 @@ async function handleStatusUpdate(status: {
     .from('broadcast_recipients')
     .select('id, status')
     .eq('whatsapp_message_id', status.id)
+    .eq('whatsapp_config_id', whatsappConfigId)
     .maybeSingle()
 
   if (recFetchErr) {
@@ -431,6 +441,7 @@ async function handleStatusUpdate(status: {
     .from('messages')
     .select('conversation_id, conversations(account_id)')
     .eq('message_id', status.id)
+    .eq('whatsapp_config_id', whatsappConfigId)
     .limit(1)
     .maybeSingle()
 
@@ -460,7 +471,11 @@ async function handleStatusUpdate(status: {
  * Runs on a best-effort basis — failures here must not break the
  * main inbound-message flow, so errors are swallowed with a log.
  */
-async function flagBroadcastReplyIfAny(accountId: string, contactId: string) {
+async function flagBroadcastReplyIfAny(
+  accountId: string,
+  contactId: string,
+  whatsappConfigId: string
+) {
   try {
     // Most recent outbound broadcast in this account that hasn't
     // been replied to yet. Account-scoped so a shared inbox reply
@@ -470,6 +485,7 @@ async function flagBroadcastReplyIfAny(accountId: string, contactId: string) {
       .from('broadcast_recipients')
       .select('id, status, broadcast_id, broadcasts!inner(account_id)')
       .eq('contact_id', contactId)
+      .eq('whatsapp_config_id', whatsappConfigId)
       .eq('broadcasts.account_id', accountId)
       .in('status', ['sent', 'delivered', 'read'])
       .order('created_at', { ascending: false })
@@ -498,13 +514,15 @@ async function flagBroadcastReplyIfAny(accountId: string, contactId: string) {
  */
 async function lookupInternalIdByMetaId(
   metaId: string,
-  conversationId: string
+  conversationId: string,
+  whatsappConfigId: string
 ): Promise<string | null> {
   const { data, error } = await supabaseAdmin()
     .from('messages')
     .select('id')
     .eq('message_id', metaId)
     .eq('conversation_id', conversationId)
+    .eq('whatsapp_config_id', whatsappConfigId)
     .maybeSingle()
   if (error) {
     console.error('[webhook] lookupInternalIdByMetaId failed:', error.message)
@@ -524,14 +542,16 @@ async function lookupInternalIdByMetaId(
 async function handleReaction(
   message: WhatsAppMessage,
   conversationId: string,
-  contactId: string
+  contactId: string,
+  whatsappConfigId: string
 ) {
   const reaction = message.reaction
   if (!reaction?.message_id) return
 
   const targetInternalId = await lookupInternalIdByMetaId(
     reaction.message_id,
-    conversationId
+    conversationId,
+    whatsappConfigId
   )
   if (!targetInternalId) {
     console.warn(
@@ -575,6 +595,8 @@ async function handleReaction(
 async function processMessage(
   message: WhatsAppMessage,
   contact: { profile: { name: string }; wa_id: string },
+  // Provider connection used to scope every Meta-side message id.
+  whatsappConfigId: string,
   // Tenancy. Resolved from the matched whatsapp_config row; every
   // contact / conversation / message row created downstream is
   // stamped with this so any member of the account can see it.
@@ -625,7 +647,12 @@ async function processMessage(
   // into `messages`, never bump unread_count, never update last_message_text.
   // Done before parseMessageContent so the media-URL fetch is skipped.
   if (message.type === 'reaction') {
-    await handleReaction(message, conversation.id, contactRecord.id)
+    await handleReaction(
+      message,
+      conversation.id,
+      contactRecord.id,
+      whatsappConfigId
+    )
     return
   }
 
@@ -643,7 +670,8 @@ async function processMessage(
   if (message.context?.id) {
     replyToInternalId = await lookupInternalIdByMetaId(
       message.context.id,
-      conversation.id
+      conversation.id,
+      whatsappConfigId
     )
     if (!replyToInternalId) {
       console.warn(
@@ -710,6 +738,7 @@ async function processMessage(
         // bytes had already been fetched successfully.
         media_type: mediaType,
         message_id: message.id,
+        whatsapp_config_id: whatsappConfigId,
         status: 'delivered',
         created_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
         reply_to_message_id: replyToInternalId,
@@ -767,7 +796,11 @@ async function processMessage(
   // If this contact was a recent broadcast recipient, flag the reply
   // so the broadcast's `replied_count` advances (via the aggregate
   // trigger installed in migration 003).
-  await flagBroadcastReplyIfAny(accountId, contactRecord.id)
+  await flagBroadcastReplyIfAny(
+    accountId,
+    contactRecord.id,
+    whatsappConfigId
+  )
 
   // ============================================================
   // Flow runner dispatch.
