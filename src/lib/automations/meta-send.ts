@@ -210,7 +210,8 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
 
   // Persist the sent message so it appears in the inbox with a real
   // Meta message id. sender_type='bot' distinguishes automation sends
-  // from manual agent sends.
+  // from manual agent sends. CR-001 also persists the exact WhatsApp
+  // connection so delivery/read webhooks can never route by WAMID alone.
   const content_type = input.kind === 'template' ? 'template' : 'text'
   // Templates persist the substituted body, same as the manual and
   // public-API send paths. This was unconditionally null, so every
@@ -228,6 +229,7 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
     content_text,
     template_name,
     message_id: waMessageId,
+    whatsapp_config_id: config.id,
     status: 'sent',
   })
   if (msgErr) {
