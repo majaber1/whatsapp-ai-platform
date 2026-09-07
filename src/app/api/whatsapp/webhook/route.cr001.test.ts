@@ -56,8 +56,12 @@ vi.mock('@supabase/supabase-js', () => ({
               return {
                 eq: (column2: string, value2: unknown) => {
                   h.filters.push({ table, operation: 'select', column: column2, value: value2 })
+                  const result = { data: null, error: null }
                   return {
-                    maybeSingle: () => Promise.resolve({ data: null, error: null }),
+                    maybeSingle: () => Promise.resolve(result),
+                    limit: () => ({
+                      maybeSingle: () => Promise.resolve(result),
+                    }),
                   }
                 },
               }
