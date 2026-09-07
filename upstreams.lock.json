@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "lockedAt": "2026-09-07",
   "policy": "No automatic upstream upgrades. Review license/security/architecture compatibility and use ADR/CR for material changes.",
   "upstreams": [
@@ -27,6 +27,25 @@
       "license": "MIT",
       "mode": "selective-adaptation",
       "status": "SELECTED"
+    },
+    {
+      "id": "goose",
+      "repository": "https://github.com/aaif-goose/goose",
+      "surfacedRepository": "https://github.com/ArnasDon/goose",
+      "commit": "5e90925962f05acf8e255032de44d16c4a7768a2",
+      "license": "Apache-2.0",
+      "mode": "runtime-provider-mcp-reference",
+      "status": "SELECTED_FOR_FIT_GAP_ONLY",
+      "notes": "ArnasDon/goose README states the project moved to the Agentic AI Foundation; canonical reviewed source is aaif-goose/goose. No wholesale runtime import is approved."
+    },
+    {
+      "id": "agentic-coding-starter-kit",
+      "repository": "https://github.com/leonvanzyl/agentic-coding-starter-kit",
+      "commit": "08bce5d393a7b20c7fdb3bde488cc90a343eec15",
+      "license": "MIT",
+      "mode": "development-governance-tooling-reference",
+      "status": "SELECTED_FOR_SELECTIVE_SKILLS",
+      "notes": "Use agent instructions/spec/review/verification patterns only. Do not replace the WACRM/Supabase application stack with the starter application's Better Auth/Drizzle/Postgres scaffold."
     }
   ]
 }
