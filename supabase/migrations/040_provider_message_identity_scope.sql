@@ -220,14 +220,15 @@ $$;
 
 DROP TRIGGER IF EXISTS trg_stamp_message_whatsapp_config ON messages;
 CREATE TRIGGER trg_stamp_message_whatsapp_config
-BEFORE INSERT OR UPDATE ON messages
+BEFORE INSERT OR UPDATE OF message_id, whatsapp_config_id, conversation_id ON messages
 FOR EACH ROW
 EXECUTE FUNCTION public.stamp_message_whatsapp_config();
 
 DROP TRIGGER IF EXISTS trg_stamp_broadcast_recipient_whatsapp_config
   ON broadcast_recipients;
 CREATE TRIGGER trg_stamp_broadcast_recipient_whatsapp_config
-BEFORE INSERT OR UPDATE ON broadcast_recipients
+BEFORE INSERT OR UPDATE OF whatsapp_message_id, whatsapp_config_id, broadcast_id
+ON broadcast_recipients
 FOR EACH ROW
 EXECUTE FUNCTION public.stamp_broadcast_recipient_whatsapp_config();
 
