@@ -26,7 +26,27 @@ export function createClient() {
         `/api/supabase-proxy${target.pathname}${target.search}`,
         window.location.origin
       )
-      return fetch(new Request(proxyUrl, request))
+
+      // A Request object is not a RequestInit object. Passing `request` as the
+      // second argument to `new Request(proxyUrl, request)` copied some request
+      // metadata but dropped the body in browsers, so Supabase Auth received an
+      // empty POST and returned "unexpected end of JSON input". Materialize the
+      // body and forward every relevant field explicitly.
+      const method = request.method.toUpperCase()
+      const body =
+        method === 'GET' || method === 'HEAD'
+          ? undefined
+          : await request.clone().arrayBuffer()
+
+      return fetch(proxyUrl, {
+        method,
+        headers: new Headers(request.headers),
+        body,
+        credentials: 'same-origin',
+        redirect: request.redirect,
+        signal: request.signal,
+        cache: 'no-store',
+      })
     }
 
     return fetch(request)
