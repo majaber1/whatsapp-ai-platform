@@ -81,10 +81,22 @@ async function proxy(request: NextRequest) {
   }
 
   const method = request.method.toUpperCase()
-  const body =
-    method === 'GET' || method === 'HEAD'
-      ? undefined
-      : await request.arrayBuffer()
+  let body: string | undefined
+
+  if (method !== 'GET' && method !== 'HEAD') {
+    // Supabase JS sends auth/PostgREST payloads as JSON text. Reading and
+    // forwarding the raw text avoids an observed Vercel/Next.js body-loss
+    // case where ArrayBuffer forwarding reached GoTrue as an empty body.
+    // Never log the body itself because it can contain passwords/tokens.
+    body = await request.text()
+
+    if (body.length === 0) {
+      console.warn(
+        '[supabase-proxy] empty request body',
+        JSON.stringify({ method, relativePath })
+      )
+    }
+  }
 
   try {
     const upstream = await fetch(upstreamUrl, {
