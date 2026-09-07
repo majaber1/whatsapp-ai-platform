@@ -52,6 +52,7 @@ vi.mock('@supabase/supabase-js', () => ({
                 Promise.resolve({
                   data: [
                     {
+                      id: 'cfg-1',
                       account_id: 'acc-1',
                       user_id: 'user-1',
                       access_token: 'enc',
@@ -80,15 +81,18 @@ vi.mock('@supabase/supabase-js', () => ({
             }),
           }
         case 'broadcast_recipients':
-          // flagBroadcastReplyIfAny: select().eq().eq().in().order().limit()
+          // CR-001 flagBroadcastReplyIfAny:
+          // select().eq(contact).eq(config).eq(account).in().order().limit()
           return {
             select: () => ({
               eq: () => ({
                 eq: () => ({
-                  in: () => ({
-                    order: () => ({
-                      limit: () =>
-                        Promise.resolve({ data: [], error: null }),
+                  eq: () => ({
+                    in: () => ({
+                      order: () => ({
+                        limit: () =>
+                          Promise.resolve({ data: [], error: null }),
+                      }),
                     }),
                   }),
                 }),
@@ -112,15 +116,18 @@ vi.mock('@supabase/supabase-js', () => ({
                         }),
                     }),
                   }
-                : // lookupInternalIdByMetaId: select('id').eq().eq().maybeSingle()
+                : // CR-001 lookupInternalIdByMetaId:
+                  // select('id').eq(message).eq(conversation).eq(config).maybeSingle()
                   {
                     eq: () => ({
                       eq: () => ({
-                        maybeSingle: () =>
-                          Promise.resolve({
-                            data: h.state.replyContextParent,
-                            error: null,
-                          }),
+                        eq: () => ({
+                          maybeSingle: () =>
+                            Promise.resolve({
+                              data: h.state.replyContextParent,
+                              error: null,
+                            }),
+                        }),
                       }),
                     }),
                   },
@@ -294,6 +301,11 @@ describe('inbound webhook: idempotent insert (#367)', () => {
       onConflict: 'conversation_id,message_id',
       ignoreDuplicates: true,
     })
+    // CR-001: the exact provider connection is persisted with the WAMID.
+    expect(h.state.upsertCalls[0].row).toMatchObject({
+      message_id: 'wamid.TEST1',
+      whatsapp_config_id: 'cfg-1',
+    })
     // Downstream side effects ran exactly once.
     expect(h.state.rpcCalls).toHaveLength(1)
     expect(h.dispatchInboundToFlows).toHaveBeenCalledTimes(1)
@@ -351,6 +363,7 @@ describe('inbound webhook: template quick-reply buttons (#478)', () => {
       content_text: 'Yes, interested',
       interactive_reply_id: 'YES_INTERESTED',
       reply_to_message_id: null,
+      whatsapp_config_id: 'cfg-1',
     })
   })
 
