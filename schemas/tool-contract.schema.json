@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://waip.local/schemas/tool-contract.schema.json",
+  "title": "WhatsApp AI Platform Tool Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion","toolId","version","name","providerType","operations","security","runtime"],
+  "properties": {
+    "schemaVersion": {"const":"1.0"},
+    "toolId": {"type":"string","pattern":"^TOOL-[A-Z0-9_-]+$"},
+    "version": {"type":"string","minLength":1},
+    "name": {"type":"string","minLength":1},
+    "providerType": {"enum":["INTERNAL","REST","GRAPHQL","MCP","DATABASE_ADAPTER","SAAS_ADAPTER"]},
+    "description": {"type":"string"},
+    "operations": {"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["id","risk","readOnly","requiresApproval","idempotency"],"properties":{"id":{"type":"string","minLength":1},"description":{"type":"string"},"risk":{"enum":["LOW","MEDIUM","HIGH","CRITICAL"]},"readOnly":{"type":"boolean"},"requiresApproval":{"type":"boolean"},"idempotency":{"enum":["NOT_REQUIRED","REQUIRED","PROVIDER_MANAGED"]},"inputSchemaRef":{"type":"string"},"outputSchemaRef":{"type":"string"}}}},
+    "security": {"type":"object","additionalProperties":false,"required":["tenantScoped","credentialMode","auditRequired"],"properties":{"tenantScoped":{"const":true},"credentialMode":{"enum":["SECRET_REFERENCE","OAUTH","MANAGED_IDENTITY","NONE"]},"auditRequired":{"type":"boolean"},"allowedDataClasses":{"type":"array","items":{"type":"string"}}}},
+    "runtime": {"type":"object","additionalProperties":false,"required":["timeoutMs","maxRetries"],"properties":{"timeoutMs":{"type":"integer","minimum":100,"maximum":120000},"maxRetries":{"type":"integer","minimum":0,"maximum":3},"rateLimitPolicy":{"type":"string"},"circuitBreakerPolicy":{"type":"string"}}}
+  }
+}
