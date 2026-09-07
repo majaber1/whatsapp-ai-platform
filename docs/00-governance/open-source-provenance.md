@@ -1,15 +1,15 @@
 ---
 Document ID: WA-GOV-OSS-001
 Title: Open-Source Provenance Register
-Version: 1.0
+Version: 1.1
 Status: APPROVED
 Owner: Architecture Governance Authority
 Created: 2026-09-07
 Last Updated: 2026-09-07
 Related Requirements: WA-FR-*, WA-NFR-*
 Related ADRs: ADR-011
-Supersedes: None
-Change Summary: Pins the reviewed upstream sources selected for the Phase 0 composition strategy.
+Supersedes: Version 1.0
+Change Summary: Adds Goose as a runtime/provider/MCP reference and Agentic Coding Starter Kit as development-governance tooling; neither is approved as a wholesale application/runtime import.
 ---
 # Open-Source Provenance Register
 
@@ -24,6 +24,8 @@ The platform is a new controlled repository. Upstream projects are not blindly m
 | WACRM | https://github.com/ArnasDon/wacrm | `98b5bd26e8feacacfd4b74ff58411acb8154d212` | MIT | Application foundation for official Meta WhatsApp connectivity, inbox, contacts, CRM/pipeline, broadcasts/templates/flows, existing API/security primitives. |
 | CrewClaw | https://github.com/staruhub/CrewClaw | `9e456e51064580bab3206d0e837018cfafdb7962` | Apache-2.0 | Employee-contract, permissions, Doctor/preflight, evidence, approval, task-event, KPI/performance patterns/components after compatibility review. |
 | OpenHire | https://github.com/pzy2000/OpenHire | `17842144d0efc2f0661c00bb28b38d62ba331199` | MIT | Employee registry, skills/cases, memory versioning, provider/workspace/admin-observability patterns/components after compatibility review. |
+| Goose | https://github.com/aaif-goose/goose | `5e90925962f05acf8e255032de44d16c4a7768a2` | Apache-2.0 | Runtime/provider/MCP/extension patterns for fit-gap and selective adaptation only. Not the canonical AI Employee runtime. |
+| Agentic Coding Starter Kit | https://github.com/leonvanzyl/agentic-coding-starter-kit | `08bce5d393a7b20c7fdb3bde488cc90a343eec15` | MIT | Development-agent instructions, spec/implementation/review/verification workflow patterns only. Not an application-stack dependency. |
 
 ## Adoption boundary
 
@@ -56,7 +58,7 @@ Prefer:
 - human approval checkpoints
 - KPI/performance derived from run evidence
 
-Do not automatically inherit beta runtime orchestration or future sub-agent behavior.
+Do not automatically inherit its runtime orchestration or future sub-agent behavior.
 
 ### OpenHire
 
@@ -71,6 +73,34 @@ Prefer:
 - admin/runtime inspection concepts
 
 Explicitly reject unbounded/high-iteration control-agent behavior as the default runtime for this product.
+
+### Goose
+
+Adoption mode: **fit-gap/reference first**.
+
+The surfaced `ArnasDon/goose` README states that Goose moved to the Agentic AI Foundation. The canonical source used for this register is therefore `aaif-goose/goose`.
+
+Evaluate selectively:
+- provider-neutral model adapters/configuration patterns
+- MCP connectivity and extension patterns
+- tool/runtime diagnostics
+- extension/capability discovery
+- local/self-hosted provider compatibility
+
+Do not import Goose wholesale into the product runtime without a separate fit-gap and architecture decision. It may not bypass tenant authorization, Tool Gateway policy, audit, action approval or the platform's ≤3-call normal workflow limit.
+
+### Agentic Coding Starter Kit
+
+Adoption mode: **development-governance tooling/reference only**.
+
+Prefer selected patterns from:
+- `AGENTS.md` and `CLAUDE.md`
+- create-spec / implementation-wave workflows
+- scoped tasks and resumable feature work
+- review/security/UI/shipping skills where compatible
+- lint/typecheck/test/build verification gates
+
+Do not import its Better Auth, Drizzle schema, starter Postgres stack, starter UI or application AI configuration into this WACRM/Supabase product merely because they exist in the starter kit. The Universal Project Governance Architecture & Delivery Standard remains authoritative.
 
 ## Licensing controls
 
@@ -87,5 +117,6 @@ Explicitly reject unbounded/high-iteration control-agent behavior as the default
 - Destination default branch: `main`
 - Imported baseline commit: `98b5bd26e8feacacfd4b74ff58411acb8154d212`
 - Imported baseline tree: `dd56c28443b57949685fd852ff94e973a17c692e`
-- Repository metadata confirms the imported baseline is MIT-licensed and currently public.
-- No product source code has been changed by our governance bootstrap at this checkpoint.
+- Repository baseline was imported from WACRM and is independent (`fork=false`).
+- Governance/source-selection changes remain isolated on `governance/phase0-baseline` at this checkpoint.
+- No wholesale CrewClaw, OpenHire, Goose or Agentic Coding Starter Kit source tree has been imported.
