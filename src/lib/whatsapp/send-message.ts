@@ -525,14 +525,14 @@ export async function sendMessageToConversation(
       .eq('contact_id', contact.id)
       .eq('status', 'active');
     if (pauseErr) {
-      console.warn('[send-message] could not pause active flow run:', pauseErr);
+      console.error('[flows] pause-on-agent-send failed:', pauseErr.message);
     }
-  } catch (pauseErr) {
-    console.warn('[send-message] flow pause failed:', pauseErr);
+  } catch (err) {
+    console.error(
+      '[flows] pause-on-agent-send threw:',
+      err instanceof Error ? err.message : err
+    );
   }
 
-  return {
-    messageId: messageRecord.id,
-    whatsappMessageId: waMessageId,
-  };
+  return { messageId: messageRecord.id, whatsappMessageId: waMessageId };
 }
