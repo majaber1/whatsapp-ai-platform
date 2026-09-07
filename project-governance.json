@@ -1,0 +1,70 @@
+{
+  "project": {
+    "id": "WA-AI",
+    "name": "WhatsApp AI Platform",
+    "productVersion": "0.2.0-prebuild",
+    "architectureVersion": "ARCH-1.0-CANDIDATE",
+    "prdVersion": "PRD-1.0-DRAFT",
+    "requirementsVersion": "REQ-1.0-DRAFT",
+    "governanceVersion": "GOV-1.0",
+    "status": "PHASE_0_FOUNDATION_BASELINE",
+    "production": "NO_GO",
+    "currentGate": "G4",
+    "currentPhase": "P0"
+  },
+  "phases": [
+    {"id":"P0","name":"Open-Source Foundation & Composition Baseline","status":"IN_PROGRESS"},
+    {"id":"P1","name":"Platform Foundation","status":"PLANNED"},
+    {"id":"P2","name":"WhatsApp + Inbox","status":"PLANNED"},
+    {"id":"P3","name":"AI Employee + Knowledge","status":"PLANNED"},
+    {"id":"P4","name":"Tools + CRM + Handoff","status":"PLANNED"},
+    {"id":"P5","name":"Broadcasts + Automations","status":"PLANNED"},
+    {"id":"P6","name":"Analytics + AI/Cost Ops","status":"PLANNED"},
+    {"id":"P7","name":"Pilot Readiness","status":"PLANNED"},
+    {"id":"P8","name":"Production GA","status":"PLANNED"}
+  ],
+  "requirements": {"total":21,"approved":0,"implemented":0,"liveE2E":0,"productionReady":0,"blocked":0},
+  "architecture": {"acceptedADRs":11,"proposedADRs":0,"supersededADRs":0,"openCRs":0,"violations":0},
+  "testing": {
+    "unit":"NOT_RUN_ON_IMPORTED_BASELINE",
+    "integration":"NOT_RUN_ON_IMPORTED_BASELINE",
+    "browserPrototype":"STATIC_VERIFIED_BROWSER_REVERIFY_REQUIRED",
+    "liveWhatsApp":"NOT_STARTED",
+    "aiEvaluation":"NOT_STARTED",
+    "security":"PHASE_0_SOURCE_REVIEW_PARTIAL",
+    "load":"NOT_STARTED",
+    "productionSmoke":"NOT_STARTED"
+  },
+  "ai": {
+    "runtimeAgents":2,
+    "standardLLMCalls":1,
+    "hardMaxLLMCalls":3,
+    "provider":"TBD",
+    "productionEnabled":false,
+    "primaryRuntimeRole":"Conversation Agent",
+    "conditionalRuntimeRole":"Safety / Quality Supervisor",
+    "moderateMaxLLMCalls":2
+  },
+  "risks": {"critical":2,"high":5,"medium":2,"low":0},
+  "cost": {"fixedMonthly":"UNKNOWN","variable":"UNKNOWN","ai":"UNKNOWN","meta":"UNKNOWN"},
+  "documents": {
+    "businessCase":"DRAFT","prd":"DRAFT","requirements":"DRAFT","hld":"DRAFT","lld":"DRAFT","data":"DRAFT","api":"DRAFT","integration":"DRAFT","ai":"DRAFT","security":"DRAFT","cost":"DRAFT","testing":"DRAFT","operations":"DRAFT","c4":"DRAFT","sequenceDiagrams":"DRAFT","compliance":"IN_REVIEW","universalStandard":"APPROVED","openSourceProvenance":"APPROVED","aiEmployeeContract":"IN_REVIEW"
+  },
+  "updatedAt":"2026-09-07",
+  "openSource": {
+    "strategy":"CONTROLLED_COMPOSITION",
+    "lockFile":"upstreams.lock.json",
+    "wacrm":{"commit":"98b5bd26e8feacacfd4b74ff58411acb8154d212","license":"MIT","role":"APPLICATION_FOUNDATION","sourceImported":true,"importRepository":"majaber1/whatsapp-ai-platform","importedCommit":"98b5bd26e8feacacfd4b74ff58411acb8154d212"},
+    "crewclaw":{"commit":"9e456e51064580bab3206d0e837018cfafdb7962","license":"Apache-2.0","role":"EMPLOYEE_GOVERNANCE_SELECTIVE_ADAPTATION","sourceImported":false},
+    "openhire":{"commit":"17842144d0efc2f0661c00bb28b38d62ba331199","license":"MIT","role":"SKILLS_MEMORY_WORKFORCE_SELECTIVE_ADAPTATION","sourceImported":false}
+  },
+  "git": {
+    "repository":"majaber1/whatsapp-ai-platform",
+    "defaultBranch":"main",
+    "baselineCommit":"98b5bd26e8feacacfd4b74ff58411acb8154d212",
+    "baselineTree":"dd56c28443b57949685fd852ff94e973a17c692e",
+    "visibility":"PUBLIC_AT_BASELINE",
+    "importedFrom":"ArnasDon/wacrm",
+    "importVerifiedAt":"2026-09-07"
+  }
+}
