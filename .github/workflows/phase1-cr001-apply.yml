@@ -1,0 +1,284 @@
+name: Phase 1 CR-001 source patch
+
+on:
+  push:
+    branches: [phase1/foundation-hardening]
+    paths:
+      - '.github/workflows/phase1-cr001-apply.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: phase1/foundation-hardening
+          fetch-depth: 0
+
+      - name: Apply verified CR-001 patch
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_exact(path, old, new, expected=1):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f"{path}: expected {expected} matches, found {count}")
+              p.write_text(text.replace(old, new))
+
+          route = 'src/app/api/whatsapp/webhook/route.ts'
+
+          old = '''      const value = change.value
+
+      // Handle status updates
+      if (value.statuses) {
+        for (const status of value.statuses) {
+          await handleStatusUpdate(status)
+        }
+      }
+
+      // Handle incoming messages
+      if (!value.messages || !value.contacts) continue
+
+      const phoneNumberId = value.metadata.phone_number_id
+
+      // Find user's config by phone_number_id. `.single()` returns
+      // PGRST116 for both 0 rows AND ≥2 rows — distinguish them so
+      // operators see the real cause in logs. ≥2 rows shouldn't happen
+      // post-migration 013 (UNIQUE constraint), but a row created
+      // before the constraint, or a race, would still surface here.
+      const { data: configRows, error: configError } = await supabaseAdmin()
+        .from('whatsapp_config')
+        .select('*')
+        .eq('phone_number_id', phoneNumberId)
+
+      if (configError) {
+        console.error(
+          'Error fetching whatsapp_config for phone_number_id:',
+          phoneNumberId,
+          configError
+        )
+        continue
+      }
+
+      if (!configRows || configRows.length === 0) {
+        console.error('No config found for phone_number_id:', phoneNumberId)
+        continue
+      }
+
+      if (configRows.length > 1) {
+        console.error(
+          `Multiple configs (${configRows.length}) found for phone_number_id:`,
+          phoneNumberId,
+          '— inbound message dropped. Resolve duplicates so each number maps to a single account.',
+          'Account owners:',
+          configRows.map((r: { account_id: string; user_id: string }) => `${r.account_id} (admin ${r.user_id})`)
+        )
+        continue
+      }
+
+      const config = configRows[0]
+
+      const decryptedAccessToken = decrypt(config.access_token)
+'''
+          new = '''      const value = change.value
+      const phoneNumberId = value.metadata?.phone_number_id
+
+      // CR-001: resolve the authoritative WhatsApp connection BEFORE
+      // processing either status events or inbound messages. Meta WAMIDs
+      // are not a safe global key across phone-number namespaces, so every
+      // provider event must carry this resolved connection identity.
+      if (!phoneNumberId) {
+        console.error('[webhook] messaging event missing metadata.phone_number_id')
+        continue
+      }
+
+      const { data: configRows, error: configError } = await supabaseAdmin()
+        .from('whatsapp_config')
+        .select('*')
+        .eq('phone_number_id', phoneNumberId)
+
+      if (configError) {
+        console.error(
+          'Error fetching whatsapp_config for phone_number_id:',
+          phoneNumberId,
+          configError
+        )
+        continue
+      }
+
+      if (!configRows || configRows.length === 0) {
+        console.error('No config found for phone_number_id:', phoneNumberId)
+        continue
+      }
+
+      if (configRows.length > 1) {
+        console.error(
+          `Multiple configs (${configRows.length}) found for phone_number_id:`,
+          phoneNumberId,
+          '— provider event dropped. Resolve duplicates so each number maps to a single account.',
+          'Account owners:',
+          configRows.map((r: { account_id: string; user_id: string }) => `${r.account_id} (admin ${r.user_id})`)
+        )
+        continue
+      }
+
+      const config = configRows[0]
+
+      // Status updates are connection-scoped. A colliding WAMID on a
+      // different phone number cannot update this tenant's message rows.
+      if (value.statuses) {
+        for (const status of value.statuses) {
+          await handleStatusUpdate(status, config.id, config.account_id)
+        }
+      }
+
+      // Status-only webhooks are complete at this point.
+      if (!value.messages || !value.contacts) continue
+
+      const decryptedAccessToken = decrypt(config.access_token)
+'''
+          replace_exact(route, old, new)
+
+          replace_exact(
+              route,
+              '''        await processMessage(\n          message,\n          contact,\n          // Tenancy — drives every contact / conversation lookup''',
+              '''        await processMessage(\n          message,\n          contact,\n          // Provider connection identity — canonical CR-001 scope for WAMIDs.\n          config.id,\n          // Tenancy — drives every contact / conversation lookup'''
+          )
+
+          replace_exact(
+              route,
+              '''async function handleStatusUpdate(status: {\n  id: string\n  status: string\n  timestamp: string\n  recipient_id: string\n}) {''',
+              '''async function handleStatusUpdate(status: {\n  id: string\n  status: string\n  timestamp: string\n  recipient_id: string\n}, whatsappConfigId: string, accountId: string) {'''
+          )
+
+          replace_exact(
+              route,
+              '''    .update({ status: status.status })\n    .eq('message_id', status.id)''',
+              '''    .update({ status: status.status })\n    .eq('message_id', status.id)\n    .eq('whatsapp_config_id', whatsappConfigId)'''
+          )
+
+          replace_exact(
+              route,
+              '''    .select('id, status')\n    .eq('whatsapp_message_id', status.id)\n    .maybeSingle()''',
+              '''    .select('id, status')\n    .eq('whatsapp_message_id', status.id)\n    .eq('whatsapp_config_id', whatsappConfigId)\n    .maybeSingle()'''
+          )
+
+          old = '''  // 3) Webhook fan-out for messages we store (inbox / API sends).
+  //    Runs last so a slow subscriber can't delay the mirrors above.
+  //    Bounded to one row (message_id isn't unique) purely to resolve
+  //    the owning account for delivery.
+  const { data: msgRow } = await supabaseAdmin()
+    .from('messages')
+    .select('conversation_id, conversations(account_id)')
+    .eq('message_id', status.id)
+    .limit(1)
+    .maybeSingle()
+
+  if (msgRow) {
+    const conv = msgRow.conversations as { account_id: string } | null
+    const accountId = conv?.account_id
+    if (accountId) {
+      await dispatchWebhookEvent(
+        supabaseAdmin(),
+        accountId,
+        'message.status_updated',
+        {
+          whatsapp_message_id: status.id,
+          conversation_id: msgRow.conversation_id,
+          status: status.status,
+        }
+      )
+    }
+  }
+'''
+          new = '''  // 3) Public webhook fan-out uses the SAME resolved connection scope.
+  const { data: msgRow } = await supabaseAdmin()
+    .from('messages')
+    .select('conversation_id')
+    .eq('message_id', status.id)
+    .eq('whatsapp_config_id', whatsappConfigId)
+    .maybeSingle()
+
+  if (msgRow) {
+    await dispatchWebhookEvent(
+      supabaseAdmin(),
+      accountId,
+      'message.status_updated',
+      {
+        whatsapp_message_id: status.id,
+        conversation_id: msgRow.conversation_id,
+        status: status.status,
+      }
+    )
+  }
+'''
+          replace_exact(route, old, new)
+
+          replace_exact(
+              route,
+              '''async function processMessage(\n  message: WhatsAppMessage,\n  contact: { profile: { name: string }; wa_id: string },\n  // Tenancy.''',
+              '''async function processMessage(\n  message: WhatsAppMessage,\n  contact: { profile: { name: string }; wa_id: string },\n  // Exact WhatsApp connection that delivered this provider message.\n  whatsappConfigId: string,\n  // Tenancy.'''
+          )
+
+          replace_exact(
+              route,
+              '''        message_id: message.id,\n        status: 'delivered',''',
+              '''        message_id: message.id,\n        whatsapp_config_id: whatsappConfigId,\n        status: 'delivered','''
+          )
+
+          # Manual/public send core.
+          replace_exact(
+              'src/lib/whatsapp/send-message.ts',
+              '''      message_id: waMessageId,\n      status: 'sent',''',
+              '''      message_id: waMessageId,\n      whatsapp_config_id: config.id,\n      status: 'sent','''
+          )
+
+          # Flow sends: text, media and interactive each persist a WAMID.
+          replace_exact(
+              'src/lib/flows/meta-send.ts',
+              '''    message_id: waMessageId,\n    status: 'sent',''',
+              '''    message_id: waMessageId,\n    whatsapp_config_id: config.id,\n    status: 'sent',''',
+              expected=3
+          )
+
+          # Public/API broadcast plan carries the exact connection through
+          # asynchronous delivery and stamps each provider-linked recipient.
+          bcast = 'src/lib/whatsapp/broadcast-core.ts'
+          replace_exact(
+              bcast,
+              '''  templateLanguage: string;\n  phoneNumberId: string;''',
+              '''  templateLanguage: string;\n  whatsappConfigId: string;\n  phoneNumberId: string;'''
+          )
+          replace_exact(
+              bcast,
+              '''    templateLanguage: resolvedTemplate.language,\n    phoneNumberId: config.phone_number_id,''',
+              '''    templateLanguage: resolvedTemplate.language,\n    whatsappConfigId: config.id,\n    phoneNumberId: config.phone_number_id,'''
+          )
+          replace_exact(
+              bcast,
+              '''          whatsapp_message_id: sentMessageId,\n          error_message: null,''',
+              '''          whatsapp_message_id: sentMessageId,\n          whatsapp_config_id: plan.whatsappConfigId,\n          error_message: null,'''
+          )
+
+      - name: Verify patch diff
+        run: |
+          git diff --check
+          git diff --stat
+          grep -R "whatsapp_config_id" -n src/app/api/whatsapp/webhook/route.ts src/lib/whatsapp/send-message.ts src/lib/flows/meta-send.ts src/lib/automations/meta-send.ts src/lib/whatsapp/broadcast-core.ts
+
+      - name: Remove one-time patch workflow
+        run: rm .github/workflows/phase1-cr001-apply.yml
+
+      - name: Commit product changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(whatsapp): scope provider status identity to connection"
+          git push origin HEAD:phase1/foundation-hardening
