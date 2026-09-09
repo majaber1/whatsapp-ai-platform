@@ -3,7 +3,7 @@ import { generateGroq } from './groq'
 
 const args = {
   apiKey: 'gsk_test',
-  model: 'llama-3.3-70b-versatile',
+  model: 'qwen/qwen3.6-27b',
   systemPrompt: 'Be concise.',
   messages: [{ role: 'user' as const, content: 'hello' }],
   timeoutMs: 1_000,
@@ -43,7 +43,7 @@ describe('generateGroq', () => {
     expect(url).toBe('https://api.groq.com/openai/v1/chat/completions')
     expect(init.headers.Authorization).toBe('Bearer gsk_test')
     const body = JSON.parse(init.body)
-    expect(body.model).toBe('llama-3.3-70b-versatile')
+    expect(body.model).toBe('qwen/qwen3.6-27b')
     expect(body.messages[0]).toEqual({ role: 'system', content: 'Be concise.' })
     expect(body.messages[1]).toEqual({ role: 'user', content: 'hello' })
   })
