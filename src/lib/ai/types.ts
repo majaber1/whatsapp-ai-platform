@@ -1,12 +1,12 @@
 // ============================================================
-// Shared types for the AI reply assistant (bring-your-own-key).
+// Shared types for the AI reply assistant / AI Employee runtime.
 //
-// One small provider-agnostic surface so the inbox draft route and the
-// inbound auto-reply bot both talk to `generateReply` without caring
-// whether the account is on OpenAI or Anthropic.
+// One small provider-agnostic surface so callers talk to the canonical
+// model router without caring whether the tenant is on OpenAI, Anthropic
+// or Groq.
 // ============================================================
 
-export type AiProvider = 'openai' | 'anthropic'
+export type AiProvider = 'openai' | 'anthropic' | 'groq'
 
 /**
  * Account AI setup, decrypted and ready to use. Produced by
@@ -31,14 +31,14 @@ export interface AiConfig {
   embeddingsApiKey: string | null
 }
 
-/** A single conversation turn in the shape both providers accept. */
+/** A single conversation turn in the shape all chat providers accept. */
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
 }
 
 /**
- * Token counts for one provider call, normalized across OpenAI
+ * Token counts for one provider call, normalized across OpenAI/Groq
  * (`prompt`/`completion`) and Anthropic (`input`/`output`). Null when
  * the provider didn't return usage. Logged to `ai_usage_log`.
  */
