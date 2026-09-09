@@ -1,13 +1,11 @@
-import {
-  AiError,
-  type AiConfig,
-  type AiUsage,
-  type ChatMessage,
-  type GenerateResult,
+import type {
+  AiConfig,
+  AiUsage,
+  ChatMessage,
+  GenerateResult,
 } from './types'
 import { HANDOFF_SENTINEL, aiRequestTimeoutMs } from './defaults'
-import { generateOpenAi } from './providers/openai'
-import { generateAnthropic } from './providers/anthropic'
+import { routeGeneration } from './router'
 
 export interface GenerateArgs {
   config: AiConfig
@@ -18,35 +16,21 @@ export interface GenerateArgs {
 }
 
 /**
- * Generate the next reply from the account's configured provider.
- * Dispatches to the right adapter, then parses the handoff sentinel out
- * of the raw text. Throws `AiError` on any provider/network failure.
+ * Generate the next reply through the canonical deterministic Model Router,
+ * then parse the handoff sentinel from the provider-neutral result.
  */
 export async function generateReply(args: GenerateArgs): Promise<GenerateResult> {
   const { config, systemPrompt, messages } = args
-  const timeoutMs = aiRequestTimeoutMs()
-  const providerArgs = {
-    apiKey: config.apiKey,
-    model: config.model,
-    systemPrompt,
-    messages,
-    timeoutMs,
-  }
-
-  let result: { text: string; usage: AiUsage | null }
-  switch (config.provider) {
-    case 'openai':
-      result = await generateOpenAi(providerArgs)
-      break
-    case 'anthropic':
-      result = await generateAnthropic(providerArgs)
-      break
-    default:
-      throw new AiError(`Unsupported AI provider: ${config.provider}`, {
-        code: 'unsupported_provider',
-        status: 400,
-      })
-  }
+  const result = await routeGeneration(
+    { provider: config.provider, model: config.model },
+    {
+      apiKey: config.apiKey,
+      model: config.model,
+      systemPrompt,
+      messages,
+      timeoutMs: aiRequestTimeoutMs(),
+    },
+  )
 
   return parseGeneration(result.text, result.usage)
 }

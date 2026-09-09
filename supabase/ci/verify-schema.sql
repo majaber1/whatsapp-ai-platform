@@ -3,14 +3,7 @@
 --
 -- `supabase db reset` already fails on any statement Postgres rejects,
 -- so this is not about syntax. It's about the quieter failure: a
--- migration that applies cleanly and does nothing. Every DDL statement
--- in this repo is guarded with IF NOT EXISTS / ON CONFLICT so the files
--- can be re-run safely, and that same guard turns a typo'd object name
--- into a silent no-op with a green checkmark.
---
--- Keep this thin. It is a smoke test for "did the migrations actually
--- build the schema", not a spec of it — asserting every column here
--- would just be the migrations restated in a second place, drifting.
+-- migration that applies cleanly and does nothing.
 DO $$
 BEGIN
   -- The core tables, from 001.
@@ -29,7 +22,6 @@ BEGIN
       'storage.buckets is missing — the storage schema was not available when the bucket migrations ran';
   END IF;
 
-  -- Buckets are UPSERTed, so their absence means the INSERT never ran.
   IF NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'chat-media') THEN
     RAISE EXCEPTION 'the chat-media bucket row was not created (migration 023)';
   END IF;
@@ -104,21 +96,27 @@ BEGIN
       'trg_stamp_broadcast_recipient_whatsapp_config is missing — legacy broadcast writers are not protected';
   END IF;
 
+  -- ADR-012 / migration 041: Groq must be accepted by the persisted
+  -- provider allow-list while OpenAI and Anthropic remain valid.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    JOIN pg_class r ON r.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = r.relnamespace
+    WHERE n.nspname = 'public'
+      AND r.relname = 'ai_configs'
+      AND c.conname = 'ai_configs_provider_check'
+      AND pg_get_constraintdef(c.oid) LIKE '%groq%'
+      AND c.convalidated
+  ) THEN
+    RAISE EXCEPTION
+      'ai_configs_provider_check does not allow validated Groq provider — migration 041 did not apply';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;
 
--- Two things this file has already been burned by, both verified in CI
--- rather than assumed:
---
--- 1. It must contain EXACTLY ONE statement. `supabase db query --file`
---    sends the whole file as a prepared statement, and a second
---    top-level statement fails with the distinctly unhelpful "cannot
---    insert multiple commands into a prepared statement" (commit
---    f91a6c8). Add assertions INSIDE the DO block above; do not append
---    a second one.
---
--- 2. A RAISE in here really does fail the job. A deliberately false
---    assertion (commit 42c7db0, run 31579334056) surfaced as
---    `failed to execute query: error: ...` and exited 1. This is not a
---    decorative green tick.
+-- Keep this file to EXACTLY ONE top-level statement. `supabase db query
+-- --file` sends the whole file as a prepared statement; add future
+-- assertions INSIDE the DO block above.
