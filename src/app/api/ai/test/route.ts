@@ -5,6 +5,8 @@ import { decrypt } from '@/lib/whatsapp/encryption'
 import { validateAiCredentials } from '@/lib/ai/validate'
 import { AiError, type AiProvider } from '@/lib/ai/types'
 
+const SUPPORTED_PROVIDERS: AiProvider[] = ['openai', 'anthropic', 'groq']
+
 /**
  * POST /api/ai/test  (admin+)
  *
@@ -27,9 +29,9 @@ export async function POST(request: Request) {
     }
 
     const provider = body.provider as AiProvider
-    if (provider !== 'openai' && provider !== 'anthropic') {
+    if (!SUPPORTED_PROVIDERS.includes(provider)) {
       return NextResponse.json(
-        { error: 'provider must be "openai" or "anthropic"' },
+        { error: 'provider must be "openai", "anthropic", or "groq"' },
         { status: 400 },
       )
     }
