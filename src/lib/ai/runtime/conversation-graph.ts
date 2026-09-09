@@ -10,8 +10,11 @@ const ConversationState = Annotation.Root({
     reducer: (current, update) => current + update,
     default: () => 0,
   }),
-  maxLlmCalls: Annotation<number>({ default: () => 3 }),
-  result: Annotation<GenerateResult | null>({ default: () => null }),
+  // Plain annotations are intentionally initialized by the invocation.
+  // LangGraph's typed Annotation API requires a reducer when a `default`
+  // option is supplied, and these two fields are overwrite-only state.
+  maxLlmCalls: Annotation<number>(),
+  result: Annotation<GenerateResult | null>(),
 })
 
 async function generateNode(state: typeof ConversationState.State) {
